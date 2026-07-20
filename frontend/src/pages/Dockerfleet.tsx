@@ -196,6 +196,33 @@ const Dockerfleet = () => {
                           style={{ width: `${Math.min(100, (pids / 500) * 100)}%` }}
                         />
                       </div>
+                      {(() => {
+                        const bd = c.pid_breakdown;
+                        if (!bd || typeof bd !== "object" || Object.keys(bd).length === 0) return null;
+                        const entries = Object.entries(bd)
+                          .map(([name, count]) => [name, Number(count)] as [string, number])
+                          .filter(([, n]) => Number.isFinite(n) && n > 0)
+                          .sort((a, b) => b[1] - a[1]);
+                        if (entries.length === 0) return null;
+                        return (
+                          <ul
+                            className="mt-2 flex flex-wrap gap-1"
+                            data-testid={`dockerfleet-container-${c.name || idx}-pid-breakdown`}
+                          >
+                            {entries.map(([name, count]) => (
+                              <li
+                                key={name}
+                                className="inline-flex items-center gap-1 rounded bg-slate-800/60 px-1.5 py-0.5 text-[10px] font-mono text-slate-300"
+                                title={`${name}: ${count} process${count === 1 ? "" : "es"}`}
+                              >
+                                <span className="text-slate-400">{name}</span>
+                                <span className="text-slate-500">·</span>
+                                <span className="text-slate-200">{count}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
                     </div>
 
                     <div className="pt-2 border-t border-slate-800 space-y-1">
