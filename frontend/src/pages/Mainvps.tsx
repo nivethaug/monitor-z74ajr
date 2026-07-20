@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import {
   Activity,
   Cpu,
@@ -16,95 +16,40 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-
-type Pm2Process = {
-  name: string;
-  status: "online" | "errored" | "stopped";
-  restarts: number;
-  cpu: number;
-  memoryMb: number;
-  uptimeHours: number;
-};
-
-type DbSize = {
-  name: string;
-  sizeMb: number;
-};
-
-type MainVpsMetrics = {
-  hostname: string;
-  uptimeHours: number;
-  status: "healthy" | "critical";
-  cpu: { percent: number; cores: number; load1: number; load5: number; load15: number };
-  memory: { usedGb: number; totalGb: number; swapUsedMb: number; swapTotalMb: number };
-  disks: { fs: string; usedGb: number; totalGb: number }[];
-  docker: { running: number; total: number };
-  postgres: { connections: number; uptimeHours: number; activeQueries: number; dbSizes: DbSize[] };
-  pm2: Pm2Process[];
-  oomCount: number;
-};
-
-const MOCK_METRICS: MainVpsMetrics = {
-  hostname: "dreamagent-main-01",
-  uptimeHours: 1342,
-  status: "healthy",
-  cpu: { percent: 34, cores: 16, load1: 1.2, load5: 2.1, load15: 1.8 },
-  memory: { usedGb: 18.4, totalGb: 32, swapUsedMb: 120, swapTotalMb: 2048 },
-  disks: [
-    { fs: "/dev/sda1 (ext4)", usedGb: 88, totalGb: 160 },
-    { fs: "/dev/sdb1 (xfs)", usedGb: 412, totalGb: 960 },
-  ],
-  docker: { running: 24, total: 26 },
-  postgres: {
-    connections: 42,
-    uptimeHours: 980,
-    activeQueries: 3,
-    dbSizes: [
-      { name: "dreamagent_prod", sizeMb: 14820 },
-      { name: "dreamagent_sessions", sizeMb: 6230 },
-      { name: "dreamagent_audit", sizeMb: 3120 },
-      { name: "dreamagent_telemetry", sizeMb: 1840 },
-      { name: "postgres", sizeMb: 42 },
-    ],
-  },
-  pm2: [
-    { name: "api-gateway", status: "online", restarts: 2, cpu: 12.4, memoryMb: 312, uptimeHours: 980 },
-    { name: "auth-service", status: "online", restarts: 0, cpu: 5.1, memoryMb: 184, uptimeHours: 1200 },
-    { name: "worker-dispatcher", status: "online", restarts: 4, cpu: 22.8, memoryMb: 640, uptimeHours: 610 },
-    { name: "billing-cron", status: "online", restarts: 1, cpu: 0.2, memoryMb: 88, uptimeHours: 1342 },
-    { name: "notifier", status: "errored", restarts: 17, cpu: 0, memoryMb: 0, uptimeHours: 0 },
-    { name: "metrics-aggregator", status: "online", restarts: 0, cpu: 8.9, memoryMb: 224, uptimeHours: 1180 },
-    { name: "webhooks-relay", status: "online", restarts: 3, cpu: 3.3, memoryMb: 142, uptimeHours: 420 },
-    { name: "cache-warmer", status: "stopped", restarts: 9, cpu: 0, memoryMb: 0, uptimeHours: 0 },
-  ],
-  oomCount: 0,
-};
+import { useMetrics } from "@/lib/metrics-context";
 
 const colorForPercent = (p: number) =>
   p >= 85 ? "bg-red-500" : p >= 70 ? "bg-yellow-500" : "bg-emerald-500";
 
+const hasError = (block: any): block is { error: string } =>
+  block && typeof block === "object" && "error" in block && Object.keys(block).length <= 2;
+
+function fmtNum(n: unknown, digits = 1): string {
+  if (typeof n !== "number" || !isFinite(n)) return "N/A";
+  return n.toFixed(digits);
+}
+
+function fmtUptime(hours: unknown): string {
+  if (typeof hours !== "number" || !isFinite(hours)) return "N/A";
+  return `${hours.toLocaleString(undefined, { maximumFractionDigits: 1 })}h`;
+}
+
 const Mainvps = () => {
-  const [metrics, setMetrics] = useState<MainVpsMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
+  const { data, loading, error } = useMetrics();
+  const main = data?.main;
 
-  const refresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setMetrics(MOCK_METRICS);
-      setLastUpdated(new Date().toLocaleTimeString());
-      setLoading(false);
-      setRefreshing(false);
-    }, 400);
-  }, []);
+  const diskList = useMemo(() => {
+    if (!main || hasError(main?.disk)) return [];
+    const arr = Array.isArray(main.disk) ? main.disk : [];
+    return arr.filter(
+      (d: any) =>
+        d &&
+        typeof d.fstype === "string" &&
+        ["ext4", "ext3", "ext2", "xfs", "btrfs", "zfs", "ntfs"].includes(d.fstype.toLowerCase())
+    );
+  }, [main]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  if (loading || !metrics) {
+  if (!main && loading) {
     return (
       <div className="flex items-center justify-center h-full text-slate-400" data-testid="mainvps-page">
         <RefreshCw className="animate-spin mr-2" aria-hidden="true" />
@@ -113,7 +58,39 @@ const Mainvps = () => {
     );
   }
 
-  const memPercent = (metrics.memory.usedGb / metrics.memory.totalGb) * 100;
+  if (!main && error) {
+    return (
+      <div className="flex items-center justify-center h-full text-red-400" data-testid="mainvps-page">
+        <AlertTriangle className="mr-2" aria-hidden="true" />
+        {error}
+      </div>
+    );
+  }
+
+  if (!main) {
+    return (
+      <div className="flex items-center justify-center h-full text-slate-400" data-testid="mainvps-page">
+        Click <RefreshCw className="h-4 w-4 mx-1" aria-hidden="true" /> Refresh to load metrics.
+      </div>
+    );
+  }
+
+  const cpuErr = hasError(main.cpu);
+  const memErr = hasError(main.memory);
+  const dockerErr = hasError(main.docker);
+  const pgErr = hasError(main.postgres);
+  const pm2Err = hasError(main.pm2);
+  const oomErr = hasError(main.oom_events);
+
+  const cpu = (!cpuErr && main.cpu) || {};
+  const memory = (!memErr && main.memory) || {};
+  const docker = (!dockerErr && main.docker) || {};
+  const postgres = (!pgErr && main.postgres) || {};
+  const pm2 = (!pm2Err && main.pm2) || {};
+  const oom = (!oomErr && main.oom_events) || {};
+
+  const memPercent = typeof memory.percent === "number" ? memory.percent : null;
+  const cpuPercent = typeof cpu.percent === "number" ? cpu.percent : null;
 
   return (
     <main className="space-y-6 text-slate-100" data-testid="mainvps-page" aria-live="polite">
@@ -123,32 +100,18 @@ const Mainvps = () => {
             <Server className="text-emerald-400" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white">{metrics.hostname}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              {main.hostname || "Main VPS"}
+            </h1>
             <div className="flex items-center gap-2 mt-1">
-              <Badge className="bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/20">Main VPS</Badge>
+              <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20">
+                Main VPS
+              </Badge>
               <span className="flex items-center gap-1 text-sm text-slate-400">
-                <span className={`h-2 w-2 rounded-full ${metrics.status === "healthy" ? "bg-emerald-500" : "bg-red-500"}`} />
-                {metrics.status === "healthy" ? "Healthy" : "Critical"}
-              </span>
-              <span className="flex items-center gap-1 text-sm text-slate-400">
-                <Clock className="h-4 w-4" aria-hidden="true" /> {metrics.uptimeHours.toLocaleString()}h uptime
+                <Clock className="h-4 w-4" aria-hidden="true" /> {fmtUptime(main.uptime_h)}
               </span>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">Last updated: {lastUpdated}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refresh}
-            disabled={refreshing}
-            data-testid="mainvps-refresh-button"
-            className="bg-slate-900 border-slate-800 hover:bg-slate-800"
-          >
-            <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
-            Refresh
-          </Button>
         </div>
       </header>
 
@@ -160,25 +123,40 @@ const Mainvps = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-end justify-between">
-              <span className="text-3xl font-mono font-semibold text-white">{metrics.cpu.percent.toFixed(1)}%</span>
-              <span className="text-xs text-slate-500 font-mono">{metrics.cpu.cores} cores</span>
-            </div>
-            <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-              <div className={`h-full ${colorForPercent(metrics.cpu.percent)} transition-all duration-700`} style={{ width: `${metrics.cpu.percent}%` }} />
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[
-                { label: "1m", value: metrics.cpu.load1 },
-                { label: "5m", value: metrics.cpu.load5 },
-                { label: "15m", value: metrics.cpu.load15 },
-              ].map((l) => (
-                <div key={l.label} className="rounded-md bg-slate-800/50 py-1.5">
-                  <div className="text-[10px] uppercase text-slate-500">{l.label}</div>
-                  <div className="font-mono text-sm text-slate-200">{l.value.toFixed(2)}</div>
+            {cpuErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : (
+              <>
+                <div className="flex items-end justify-between">
+                  <span className="text-3xl font-mono font-semibold text-white">
+                    {cpuPercent !== null ? fmtNum(cpuPercent) : "N/A"}%
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {typeof cpu.cores === "number" ? `${cpu.cores} cores` : ""}
+                  </span>
                 </div>
-              ))}
-            </div>
+                {cpuPercent !== null && (
+                  <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full ${colorForPercent(cpuPercent)} transition-all duration-700`}
+                      style={{ width: `${cpuPercent}%` }}
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {(cpu.load && Array.isArray(cpu.load) ? cpu.load : [null, null, null]).map(
+                    (l: number | null, i: number) => (
+                      <div key={i} className="rounded-md bg-slate-800/50 py-1.5">
+                        <div className="text-[10px] uppercase text-slate-500">{["1m", "5m", "15m"][i]}</div>
+                        <div className="font-mono text-sm text-slate-200">
+                          {typeof l === "number" ? l.toFixed(2) : "N/A"}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -189,127 +167,145 @@ const Mainvps = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-end justify-between">
-              <span className="text-3xl font-mono font-semibold text-white">
-                {metrics.memory.usedGb.toFixed(1)} <span className="text-slate-500 text-lg">/ {metrics.memory.totalGb} GB</span>
-              </span>
-              <span className="text-xs text-slate-500 font-mono">{memPercent.toFixed(0)}%</span>
-            </div>
-            <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
-              <div className={`h-full ${colorForPercent(memPercent)} transition-all duration-700`} style={{ width: `${memPercent}%` }} />
-            </div>
-            <div className="text-xs text-slate-500 font-mono">
-              Swap: {metrics.memory.swapUsedMb} MB / {metrics.memory.swapTotalMb} MB
-            </div>
+            {memErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : (
+              <>
+                <div className="flex items-end justify-between">
+                  <span className="text-3xl font-mono font-semibold text-white">
+                    {fmtNum(memory.used_gb)}{" "}
+                    <span className="text-slate-500 text-lg">/ {fmtNum(memory.total_gb)} GB</span>
+                  </span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {memPercent !== null ? `${memPercent.toFixed(0)}%` : "N/A"}
+                  </span>
+                </div>
+                {memPercent !== null && (
+                  <div className="h-2.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full ${colorForPercent(memPercent)} transition-all duration-700`}
+                      style={{ width: `${memPercent}%` }}
+                    />
+                  </div>
+                )}
+                <div className="text-xs text-slate-500 font-mono">
+                  Swap: {fmtNum(memory.swap_used_gb, 2)} GB / {fmtNum(memory.swap_total_gb, 2)} GB
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <section>
         <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-disk">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-slate-200">
               <HardDrive className="h-4 w-4 text-amber-400" aria-hidden="true" /> Disk
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {metrics.disks.map((d) => {
-              const p = (d.usedGb / d.totalGb) * 100;
-              return (
-                <div key={d.fs} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-mono text-slate-300">{d.fs}</span>
-                    <span className="font-mono text-slate-500">{d.usedGb} / {d.totalGb} GB</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                    <div className={`h-full ${colorForPercent(p)} transition-all duration-700`} style={{ width: `${p}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+          <CardContent>
+            {hasError(main.disk) ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : diskList.length === 0 ? (
+              <div className="text-sm text-slate-500">No filesystem disks reported</div>
+            ) : (
+              <div className="space-y-3">
+                {diskList.map((d: any) => {
+                  const total = typeof d.total_gb === "number" ? d.total_gb : 0;
+                  const used = typeof d.used_gb === "number" ? d.used_gb : 0;
+                  const p = total > 0 ? (used / total) * 100 : 0;
+                  return (
+                    <div key={`${d.device}-${d.mount}`} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-mono text-slate-300">
+                          {d.mount || d.device}{" "}
+                          <span className="text-slate-600">({d.fstype})</span>
+                        </span>
+                        <span className="font-mono text-slate-500">
+                          {fmtNum(used)} / {fmtNum(total)} GB
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div
+                          className={`h-full ${colorForPercent(p)} transition-all duration-700`}
+                          style={{ width: `${p}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
+      </section>
 
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-docker">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-slate-200">
               <Container className="h-4 w-4 text-cyan-400" aria-hidden="true" /> Docker
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-slate-800/50 p-3">
-              <div className="text-xs text-slate-500">Running</div>
-              <div className="text-2xl font-mono text-emerald-400">{metrics.docker.running}</div>
-            </div>
-            <div className="rounded-lg bg-slate-800/50 p-3">
-              <div className="text-xs text-slate-500">Stopped</div>
-              <div className="text-2xl font-mono text-slate-300">{metrics.docker.total - metrics.docker.running}</div>
-            </div>
-            <div className="rounded-lg bg-slate-800/50 p-3">
-              <div className="text-xs text-slate-500">Total</div>
-              <div className="text-2xl font-mono text-slate-200">{metrics.docker.total}</div>
-            </div>
+          <CardContent>
+            {dockerErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : docker.available === false ? (
+              <div className="text-sm text-slate-500">Docker not available</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-slate-800/50 p-3">
+                  <div className="text-xs text-slate-500">Running</div>
+                  <div className="text-2xl font-mono text-emerald-400">{docker.running ?? "N/A"}</div>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 p-3">
+                  <div className="text-xs text-slate-500">Stopped</div>
+                  <div className="text-2xl font-mono text-slate-300">
+                    {typeof docker.total === "number" && typeof docker.running === "number"
+                      ? docker.total - docker.running
+                      : "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 p-3">
+                  <div className="text-xs text-slate-500">Total</div>
+                  <div className="text-2xl font-mono text-slate-200">{docker.total ?? "N/A"}</div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
-      </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-postgres">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-slate-200">
-              <Database className="h-4 w-4 text-indigo-400" aria-hidden="true" /> Postgres
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-md bg-slate-800/50 py-2">
-                <div className="text-[10px] uppercase text-slate-500">Connections</div>
-                <div className="font-mono text-lg text-slate-100">{metrics.postgres.connections}</div>
-              </div>
-              <div className="rounded-md bg-slate-800/50 py-2">
-                <div className="text-[10px] uppercase text-slate-500">Active Queries</div>
-                <div className="font-mono text-lg text-slate-100">{metrics.postgres.activeQueries}</div>
-              </div>
-              <div className="rounded-md bg-slate-800/50 py-2">
-                <div className="text-[10px] uppercase text-slate-500">Uptime (h)</div>
-                <div className="font-mono text-lg text-slate-100">{metrics.postgres.uptimeHours}</div>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase text-slate-500 mb-2">Top 5 Database Sizes</div>
-              <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                {metrics.postgres.dbSizes.map((db) => (
-                  <div key={db.name} className="flex justify-between text-sm bg-slate-800/30 rounded px-2 py-1">
-                    <span className="font-mono text-slate-200">{db.name}</span>
-                    <span className="font-mono text-slate-400">{(db.sizeMb / 1024).toFixed(2)} GB</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-oom">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base text-slate-200">
-              <AlertTriangle className="h-4 w-4 text-red-400" aria-hidden="true" /> OOM Events
+              <Database className="h-4 w-4 text-pink-400" aria-hidden="true" /> PostgreSQL
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {metrics.oomCount > 0 ? (
-              <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 flex items-center gap-3">
-                <XCircle className="h-8 w-8 text-red-500" aria-hidden="true" />
-                <div>
-                  <div className="font-mono text-2xl text-red-400">{metrics.oomCount}</div>
-                  <div className="text-sm text-red-300">Out of memory events detected</div>
-                </div>
-              </div>
+            {pgErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : postgres.available === false ? (
+              <div className="text-sm text-slate-500">PostgreSQL not available</div>
             ) : (
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" aria-hidden="true" />
-                <div>
-                  <div className="text-lg text-emerald-300">No OOM events</div>
-                  <div className="text-sm text-slate-500">System memory is stable</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-slate-800/50 p-3">
+                  <div className="text-xs text-slate-500">Connections</div>
+                  <div className="text-2xl font-mono text-slate-200">
+                    {postgres.connection_count ?? "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 p-3">
+                  <div className="text-xs text-slate-500">Active Queries</div>
+                  <div className="text-2xl font-mono text-slate-200">
+                    {postgres.active_queries ?? "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 p-3 col-span-2">
+                  <div className="text-xs text-slate-500">Uptime</div>
+                  <div className="font-mono text-sm text-slate-300">
+                    {postgres.uptime || "N/A"}
+                  </div>
                 </div>
               </div>
             )}
@@ -325,45 +321,90 @@ const Mainvps = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-auto max-h-[400px] rounded-md border border-slate-800">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-900 text-slate-500">
-                  <tr>
-                    <th className="text-left font-medium px-3 py-2">Name</th>
-                    <th className="text-left font-medium px-3 py-2">Status</th>
-                    <th className="text-right font-medium px-3 py-2">Restarts</th>
-                    <th className="text-right font-medium px-3 py-2">CPU%</th>
-                    <th className="text-right font-medium px-3 py-2">Memory (MB)</th>
-                    <th className="text-right font-medium px-3 py-2">Uptime (h)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metrics.pm2.map((p) => (
-                    <tr
-                      key={p.name}
-                      className={`border-t border-slate-800 hover:bg-slate-800/30 ${p.status !== "online" ? "bg-red-500/5" : ""}`}
-                    >
-                      <td className="px-3 py-2 font-mono text-slate-200">{p.name}</td>
-                      <td className="px-3 py-2">
-                        <Badge
-                          className={
-                            p.status === "online"
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                              : "bg-red-500/15 text-red-300 border border-red-500/30"
-                          }
-                        >
-                          {p.status}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-300">{p.restarts}</td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-300">{p.cpu.toFixed(1)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-300">{p.memoryMb}</td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-300">{p.uptimeHours}</td>
+            {pm2Err ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : pm2.available === false ? (
+              <div className="text-sm text-slate-500">PM2 not available</div>
+            ) : !Array.isArray(pm2.processes) || pm2.processes.length === 0 ? (
+              <div className="text-sm text-slate-500">No PM2 processes</div>
+            ) : (
+              <div className="overflow-auto max-h-[400px] rounded-md border border-slate-800">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-900 text-slate-500">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Name</th>
+                      <th className="text-left font-medium px-3 py-2">Status</th>
+                      <th className="text-right font-medium px-3 py-2">Restarts</th>
+                      <th className="text-right font-medium px-3 py-2">CPU%</th>
+                      <th className="text-right font-medium px-3 py-2">Memory (MB)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {pm2.processes.map((p: any, i: number) => (
+                      <tr
+                        key={`${p.name}-${i}`}
+                        className={`border-t border-slate-800 hover:bg-slate-800/30 ${p.status !== "online" ? "bg-red-500/5" : ""}`}
+                      >
+                        <td className="px-3 py-2 font-mono text-slate-200">{p.name || "N/A"}</td>
+                        <td className="px-3 py-2">
+                          <Badge
+                            className={
+                              p.status === "online"
+                                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                                : "bg-red-500/15 text-red-300 border border-red-500/30"
+                            }
+                          >
+                            {p.status || "N/A"}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-300">{p.restarts ?? "N/A"}</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-300">
+                          {typeof p.cpu === "number" ? p.cpu.toFixed(1) : "N/A"}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-300">
+                          {typeof p.memory_mb === "number" ? p.memory_mb : "N/A"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-oom">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-slate-200">
+              <AlertTriangle className="h-4 w-4 text-red-400" aria-hidden="true" /> OOM Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {oomErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : oom.available === false ? (
+              <div className="text-sm text-slate-500">OOM monitoring not available</div>
+            ) : typeof oom.count_24h === "number" && oom.count_24h > 0 ? (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 flex items-center gap-3">
+                <XCircle className="h-8 w-8 text-red-500" aria-hidden="true" />
+                <div>
+                  <div className="font-mono text-2xl text-red-400">{oom.count_24h}</div>
+                  <div className="text-sm text-red-300">Out of memory events (24h)</div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4 flex items-center gap-3">
+                <CheckCircle2 className="h-8 w-8 text-emerald-500" aria-hidden="true" />
+                <div>
+                  <div className="text-lg text-emerald-300">
+                    {typeof oom.count_24h === "number" ? "No OOM events" : "N/A"}
+                  </div>
+                  <div className="text-sm text-slate-500">System memory is stable</div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>

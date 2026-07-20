@@ -27,5 +27,12 @@ class Settings:
     # Project
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "DreamPilot API")
 
+    # Monitoring integration
+    LOGIN_TOKEN: str = os.getenv("LOGIN_TOKEN", "")
+    MAIN_VPS_URL: str = os.getenv("MAIN_VPS_URL", "")
+    WORKER_VPS_URL: str = os.getenv("WORKER_VPS_URL", "")
+    MAIN_VPS_TOKEN: str = os.getenv("MAIN_VPS_TOKEN", "")
+    WORKER_VPS_TOKEN: str = os.getenv("WORKER_VPS_TOKEN", "")
+
 
 settings = Settings()

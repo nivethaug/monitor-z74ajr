@@ -9,6 +9,7 @@ import Mainvps from "./pages/Mainvps";
 import Workervps from "./pages/Workervps";
 import Dockerfleet from "./pages/Dockerfleet";
 import Inframonitor from "./pages/Inframonitor";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<div className="p-6 text-slate-400">Loading...</div>}>
           <Routes>
+            <Route path="/login" element={<Login />} />
             <Route element={<Layout />}>
               <Route path="/" element={<Mainvps />} />
               <Route path="/workervps" element={<Workervps />} />

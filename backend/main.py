@@ -13,6 +13,7 @@ from core.database import init_db, SessionLocal
 from services.auth_service import AuthService
 from routes.health import router as health_router
 from routes.auth import router as auth_router
+from routes.metrics import router as metrics_router
 
 
 @asynccontextmanager
@@ -56,6 +57,7 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(metrics_router)
 
 
 @app.get("/swagger", include_in_schema=False)
