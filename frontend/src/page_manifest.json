@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "Mainvps",
+    "Workervps",
+    "Dockerfleet",
+    "Inframonitor"
+  ],
+  "generated_at": null,
+  "scaffolded": false
+}

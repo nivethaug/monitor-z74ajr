@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "name": "monitor-z74ajr-backend",
+      "script": "/root/clawd-backend/scripts/backend-sandbox.sh",
+      "args": "/root/dreampilot/dreampilotvenv /workspaces/user_24/website/1778_monitor_20260720_172012/backend 8011",
+      "cwd": "/workspaces/user_24/website/1778_monitor_20260720_172012/backend",
+      "interpreter": "/bin/bash",
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "900M",
+      "env": {
+        "PORT": "8011",
+        "BACKEND_HOST": "0.0.0.0",
+        "BACKEND_PORT": "8011",
+        "PROJECT_NAME": "monitor-z74ajr",
+        "DATABASE_URL": "postgresql://monitor_z74ajr_user:dGTXUGk2LP7ECjLVWezPCxoSLjtH8w27@localhost:5432/monitor_z74ajr_db"
+      }
+    }
+  ]
+}
