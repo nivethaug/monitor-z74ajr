@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Activity, Server, ServerCog, Container, Menu, X, RefreshCw, LogOut, Clock } from "lucide-react";
+import { Activity, Server, ServerCog, Container, Menu, X, RefreshCw, LogOut, Clock, TerminalSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMetrics, logout } from "@/lib/metrics-context";
 
@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/workervps", label: "Worker VPS", icon: ServerCog, testId: "navbar-link-workervps" },
   { to: "/dockerfleet", label: "Docker Fleet", icon: Container, testId: "navbar-link-dockerfleet" },
   { to: "/inframonitor", label: "Infra Monitor", icon: Activity, testId: "navbar-link-inframonitor" },
+  { to: "/webterminal", label: "Web Terminal", icon: TerminalSquare, testId: "navbar-link-webterminal" },
 ];
 
 const Navbar = () => {
