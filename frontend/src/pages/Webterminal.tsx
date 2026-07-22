@@ -7,8 +7,6 @@ import {
   Trash2,
   Wifi,
   Cpu,
-  MemoryStick,
-  HardDrive,
   MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -256,9 +254,6 @@ export default function Webterminal() {
     ]);
   };
 
-  const memPct = Math.round((selected.memUsed / selected.memTotal) * 100);
-  const diskPct = Math.round((selected.diskUsed / selected.diskTotal) * 100);
-
   return (
     <main
       className="h-[calc(100dvh-4rem)] bg-slate-950 text-slate-100 flex flex-col overflow-hidden"
@@ -345,7 +340,7 @@ export default function Webterminal() {
 
         {/* Hero section — VPS metrics */}
         <section
-          className="grid grid-cols-4 gap-1.5 md:gap-3 mb-2"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 md:gap-3 mb-2"
           data-testid="webterminal-hero-section"
           aria-label="VPS metrics"
         >
@@ -356,29 +351,6 @@ export default function Webterminal() {
             sub={`${selected.cpuCores} cores`}
             pct={selected.cpu}
             testId="webterminal-metric-cpu"
-          />
-          <MetricCard
-            icon={<MemoryStick className="h-2.5 w-2.5" />}
-            label="Memory"
-            value={`${selected.memUsed}/${selected.memTotal}G`}
-            sub={`${selected.memUsed} / ${selected.memTotal} GB`}
-            pct={memPct}
-            testId="webterminal-metric-memory"
-          />
-          <MetricCard
-            icon={<HardDrive className="h-2.5 w-2.5" />}
-            label="Disk"
-            value={`${selected.diskUsed}/${selected.diskTotal}G`}
-            sub={`${selected.diskUsed} / ${selected.diskTotal} GB`}
-            pct={diskPct}
-            testId="webterminal-metric-disk"
-          />
-          <MetricCard
-            icon={<Wifi className="h-2.5 w-2.5" />}
-            label="Network"
-            value={`↑${selected.netUp} ↓${selected.netDown}`}
-            sub="Mbps up / down"
-            testId="webterminal-metric-network"
           />
         </section>
 
