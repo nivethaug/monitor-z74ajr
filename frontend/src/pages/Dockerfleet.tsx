@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
-import { Container, Cpu, MemoryStick, Hash, Search, Activity, RefreshCw, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Container, Cpu, MemoryStick, Hash, Search, Activity, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMetrics } from "@/lib/metrics-context";
+
+const PAGE_SIZE = 5;
 
 const hasError = (block: any): block is { error: string } =>
   block && typeof block === "object" && "error" in block && Object.keys(block).length <= 2;
@@ -31,6 +34,7 @@ const Dockerfleet = () => {
   }, [docker]);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -41,6 +45,18 @@ const Dockerfleet = () => {
       return name.includes(q) || uid.includes(q);
     });
   }, [containers, searchTerm]);
+
+  // Reset to page 1 when the filter or data changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, containers]);
+
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const firstItem = totalItems === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const lastItem = Math.min(safePage * PAGE_SIZE, totalItems);
 
   const runningCount = containers.filter((c: any) => c.status === "running").length;
   const totalPids = containers.reduce((sum: number, c: any) => sum + (c.pid_count || 0), 0);
@@ -142,7 +158,7 @@ const Dockerfleet = () => {
           </section>
 
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" data-testid="dockerfleet-grid">
-            {filtered.map((c: any, idx: number) => {
+            {pageItems.map((c: any, idx: number) => {
               const cpu = parseCpuPercent(c.cpu);
               const pids = typeof c.pid_count === "number" ? c.pid_count : 0;
               return (
@@ -239,12 +255,46 @@ const Dockerfleet = () => {
                 </Card>
               );
             })}
-            {filtered.length === 0 && (
+            {pageItems.length === 0 && (
               <div className="col-span-full text-center py-12 text-slate-500" data-testid="dockerfleet-empty">
                 No containers reported. Click Refresh to load.
               </div>
             )}
           </section>
+
+          {totalItems > PAGE_SIZE && (
+            <nav
+              className="flex items-center justify-center gap-3 pt-1"
+              aria-label="Container pages"
+              data-testid="dockerfleet-pager"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                data-testid="dockerfleet-pager-prev"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Previous page</span>
+              </Button>
+              <span className="text-xs text-slate-400 font-mono" aria-live="polite">
+                {firstItem}–{lastItem} of {totalItems} · page {safePage}/{totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 disabled:opacity-40"
+                data-testid="dockerfleet-pager-next"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Next page</span>
+              </Button>
+            </nav>
+          )}
         </>
       )}
     </main>
