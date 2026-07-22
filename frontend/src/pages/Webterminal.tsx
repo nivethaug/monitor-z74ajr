@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import {
-  Terminal,
   Server,
   ChevronDown,
   Circle,
   Trash2,
   Wifi,
-  Cpu,
   MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,51 +79,6 @@ const BANNER = [
   "Connected securely via SSH gateway",
   "Type 'help' for available commands (demo mode — UI only)",
 ];
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  sub,
-  pct,
-  testId,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-  pct?: number;
-  testId: string;
-}) {
-  const accent =
-    pct === undefined
-      ? "bg-sky-400"
-      : pct > 85
-      ? "bg-red-400"
-      : pct > 65
-      ? "bg-amber-400"
-      : "bg-emerald-400";
-  return (
-    <div
-      className="rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-2 md:px-3 md:py-2.5"
-      data-testid={testId}
-    >
-      <div className="flex items-center gap-1 text-[9px] md:text-[10px] uppercase tracking-wide text-slate-400">
-        <span className="text-slate-500" aria-hidden="true">
-          {icon}
-        </span>
-        {label}
-      </div>
-      <div className="mt-0.5 text-xs md:text-sm font-mono font-semibold text-white truncate">{value}</div>
-      {sub && <div className="hidden md:block text-[10px] text-slate-500 truncate">{sub}</div>}
-      {pct !== undefined && (
-        <div className="mt-1 h-1 rounded-full bg-slate-800 overflow-hidden" aria-hidden="true">
-          <div className={`h-full ${accent} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Webterminal() {
   const [selectedId, setSelectedId] = useState<string>(VPS_OPTIONS[0].id);
@@ -260,18 +213,8 @@ export default function Webterminal() {
       data-testid="webterminal-page"
     >
       <div className="flex-1 flex flex-col min-h-0 w-full max-w-6xl mx-auto p-2 md:p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2 mb-2" data-testid="webterminal-header">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shrink-0">
-              <Terminal className="h-4 w-4 md:h-5 md:w-5 text-white" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm md:text-xl font-bold text-white truncate">Web Terminal</h1>
-              <p className="hidden md:block text-xs text-slate-400">Secure shell access to your infrastructure</p>
-            </div>
-          </div>
-
+        {/* Header — VPS selector only */}
+        <div className="flex items-center justify-end gap-2 mb-2" data-testid="webterminal-header">
           {/* Compact VPS selector */}
           <div className="relative shrink-0" data-testid="webterminal-vps-selector">
             <Button
@@ -337,22 +280,6 @@ export default function Webterminal() {
             )}
           </div>
         </div>
-
-        {/* Hero section — VPS metrics */}
-        <section
-          className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 md:gap-3 mb-2"
-          data-testid="webterminal-hero-section"
-          aria-label="VPS metrics"
-        >
-          <MetricCard
-            icon={<Cpu className="h-2.5 w-2.5" />}
-            label="CPU"
-            value={`${selected.cpu}%`}
-            sub={`${selected.cpuCores} cores`}
-            pct={selected.cpu}
-            testId="webterminal-metric-cpu"
-          />
-        </section>
 
         {/* Connection bar — compact */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2" data-testid="webterminal-status-bar">
