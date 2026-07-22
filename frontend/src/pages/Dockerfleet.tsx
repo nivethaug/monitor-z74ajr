@@ -64,18 +64,18 @@ const Dockerfleet = () => {
   }
 
   return (
-    <main className="space-y-6 text-slate-100" data-testid="dockerfleet-page" aria-live="polite">
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-slate-800">
-            <Container className="text-cyan-400" aria-hidden="true" />
+    <main className="space-y-3 text-slate-100" data-testid="dockerfleet-page" aria-live="polite">
+      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-slate-800">
+            <Container className="h-5 w-5 text-cyan-400" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white">Docker Fleet</h1>
-            <p className="text-sm text-slate-400">Per-user container runtime overview</p>
-            {lastUpdated && (
-              <p className="text-xs text-slate-500 mt-0.5">Last updated: {lastUpdated}</p>
-            )}
+            <h1 className="text-xl font-semibold tracking-tight text-white leading-tight">Docker Fleet</h1>
+            <p className="text-xs text-slate-400 leading-tight">
+              Per-user container runtime overview
+              {lastUpdated && <span className="text-slate-500"> · Last updated: {lastUpdated}</span>}
+            </p>
           </div>
         </div>
       </header>
@@ -90,37 +90,37 @@ const Dockerfleet = () => {
         </Card>
       ) : (
         <>
-          <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <section className="grid grid-cols-3 gap-2 sm:gap-3">
             <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="dockerfleet-summary-total">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-slate-800/60">
-                  <Container className="h-5 w-5 text-slate-300" aria-hidden="true" />
+              <CardContent className="px-2.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 rounded-lg bg-slate-800/60">
+                  <Container className="h-4 w-4 text-slate-300" aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase text-slate-500">Total Containers</div>
-                  <div className="text-2xl font-mono text-white">{containers.length}</div>
+                  <div className="text-[9px] sm:text-xs uppercase text-slate-500 leading-tight">Containers</div>
+                  <div className="text-lg sm:text-2xl font-mono text-white leading-tight">{containers.length}</div>
                 </div>
               </CardContent>
             </Card>
             <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="dockerfleet-summary-running">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Activity className="h-5 w-5 text-emerald-400" aria-hidden="true" />
+              <CardContent className="px-2.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                  <Activity className="h-4 w-4 text-emerald-400" aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase text-slate-500">Running</div>
-                  <div className="text-2xl font-mono text-emerald-400">{runningCount}</div>
+                  <div className="text-[9px] sm:text-xs uppercase text-slate-500 leading-tight">Running</div>
+                  <div className="text-lg sm:text-2xl font-mono text-emerald-400 leading-tight">{runningCount}</div>
                 </div>
               </CardContent>
             </Card>
             <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="dockerfleet-summary-pids">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Hash className="h-5 w-5 text-purple-400" aria-hidden="true" />
+              <CardContent className="px-2.5 py-2 sm:px-4 sm:py-2.5 flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 rounded-lg bg-purple-500/10">
+                  <Hash className="h-4 w-4 text-purple-400" aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="text-xs uppercase text-slate-500">Total PIDs</div>
-                  <div className="text-2xl font-mono text-purple-300">{totalPids.toLocaleString()}</div>
+                  <div className="text-[9px] sm:text-xs uppercase text-slate-500 leading-tight">Total PIDs</div>
+                  <div className="text-lg sm:text-2xl font-mono text-purple-300 leading-tight">{totalPids.toLocaleString()}</div>
                 </div>
               </CardContent>
             </Card>
@@ -212,12 +212,12 @@ const Dockerfleet = () => {
                             {entries.map(([name, count]) => (
                               <li
                                 key={name}
-                                className="inline-flex items-center gap-1 rounded bg-slate-800/60 px-1.5 py-0.5 text-[10px] font-mono text-slate-300"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-slate-800/70 px-2 py-1 text-sm font-mono font-semibold leading-none"
                                 title={`${name}: ${count} process${count === 1 ? "" : "es"}`}
                               >
-                                <span className="text-slate-400">{name}</span>
-                                <span className="text-slate-500">·</span>
-                                <span className="text-slate-200">{count}</span>
+                                <span className="text-white tracking-tight">{name}</span>
+                                <span className="text-slate-500 font-normal">·</span>
+                                <span className="text-cyan-300 font-bold tabular-nums">{count}</span>
                               </li>
                             ))}
                           </ul>
