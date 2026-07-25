@@ -422,7 +422,6 @@ def main():
     
     # Step 8: Restart PM2 + nginx (MANDATORY by default)
     if not args.no_restart and success:
-        restart_pm2()  # Uses monitor-z74ajr placeholder
         reload_nginx()
 
     # Step 9: Cleanup node_modules (after restart so nothing is needed anymore)

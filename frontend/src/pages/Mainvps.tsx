@@ -34,6 +34,22 @@ function fmtUptime(hours: unknown): string {
   return `${hours.toLocaleString(undefined, { maximumFractionDigits: 1 })}h`;
 }
 
+function fmtUptimeFromSeconds(s: unknown): string {
+  if (typeof s !== "number" || !isFinite(s) || s < 0) return "N/A";
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function memColorClass(mb: number): string {
+  if (mb > 200) return "text-red-400";
+  if (mb > 100) return "text-amber-400";
+  return "text-slate-200";
+}
+
 const Mainvps = () => {
   const { data, loading, error } = useMetrics();
   const main = data?.main;
@@ -88,6 +104,10 @@ const Mainvps = () => {
   const postgres = (!pgErr && main.postgres) || {};
   const pm2 = (!pm2Err && main.pm2) || {};
   const oom = (!oomErr && main.oom_events) || {};
+
+  const topProcsErr = hasError(main.top_procs);
+  const topProcs = (!topProcsErr && main.top_procs) || {};
+  const byMem = Array.isArray(topProcs.by_mem) ? topProcs.by_mem.slice(0, 10) : [];
 
   const memPercent = typeof memory.percent === "number" ? memory.percent : null;
   const cpuPercent = typeof cpu.percent === "number" ? cpu.percent : null;
@@ -366,6 +386,65 @@ const Mainvps = () => {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className="bg-slate-900/80 border-slate-800 backdrop-blur-xl" data-testid="mainvps-top-mem-procs">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-slate-200">
+              <MemoryStick className="h-4 w-4 text-purple-400" aria-hidden="true" /> Top Memory Processes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topProcsErr ? (
+              <div className="text-sm text-red-400">Unavailable</div>
+            ) : byMem.length === 0 ? (
+              <div className="text-sm text-slate-500">No process data available</div>
+            ) : (
+              <div className="overflow-auto max-h-[400px] rounded-md border border-slate-800">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-slate-900 text-slate-500">
+                    <tr>
+                      <th className="text-left font-medium px-3 py-2">Process Name</th>
+                      <th className="text-left font-medium px-3 py-2">User</th>
+                      <th className="text-right font-medium px-3 py-2">Memory (MB)</th>
+                      <th className="text-right font-medium px-3 py-2">Mem %</th>
+                      <th className="text-right font-medium px-3 py-2">CPU %</th>
+                      <th className="text-left font-medium px-3 py-2">Uptime</th>
+                      <th className="text-left font-medium px-3 py-2 hidden md:table-cell">Command</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {byMem.map((p: any, i: number) => {
+                      const mb = typeof p.rss_mb === "number" ? p.rss_mb : 0;
+                      return (
+                        <tr key={`${p.pid}-${i}`} className="border-t border-slate-800 hover:bg-slate-800/30">
+                          <td className="px-3 py-2 font-mono text-slate-200">{p.name || "N/A"}</td>
+                          <td className="px-3 py-2 font-mono text-slate-400">{p.user || "N/A"}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${memColorClass(mb)}`}>
+                            {typeof p.rss_mb === "number" ? fmtNum(p.rss_mb, 1) : "N/A"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-300">
+                            {typeof p.mem_percent === "number" ? `${fmtNum(p.mem_percent, 1)}%` : "N/A"}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-300">
+                            {typeof p.cpu === "number" ? `${fmtNum(p.cpu, 1)}%` : "N/A"}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-slate-300">{fmtUptimeFromSeconds(p.uptime_s)}</td>
+                          <td className="px-3 py-2 font-mono text-slate-500 hidden md:table-cell">
+                            <span className="block max-w-[280px] truncate" title={p.cmd || ""}>
+                              {p.cmd || "N/A"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
