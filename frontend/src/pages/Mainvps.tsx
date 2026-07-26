@@ -99,7 +99,7 @@ const Mainvps = () => {
       <div data-testid="mainvps-page" aria-live="polite" className="space-y-4">
         <Skeleton className="h-14 w-full" />
         <Skeleton className="h-24 w-full" />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Skeleton className="h-28" />
           <Skeleton className="h-28" />
           <Skeleton className="h-28" />
@@ -277,7 +277,7 @@ const Mainvps = () => {
       </GlassCard>
 
       {/* ===================== 2×2 RESOURCE GRID ===================== */}
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <ResourceTile
           testId="mainvps-cpu"
           Icon={Cpu}
@@ -615,7 +615,7 @@ const Mainvps = () => {
       </section>
 
       {/* ===================== FLOATING ACTION BAR ===================== */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4">
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 md:max-w-3xl md:px-6">
         <div className="action-bar rounded-2xl p-1.5 flex items-center justify-between gap-1">
           <ActionBtn Icon={RotateCw} label="Restart" onClick={() => navigate("/dockerfleet")} />
           <ActionBtn Icon={ScrollText} label="Logs" onClick={() => navigate("/inframonitor")} />

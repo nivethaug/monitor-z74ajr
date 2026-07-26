@@ -39,7 +39,7 @@ const BottomNavigation = () => {
       aria-label="Primary"
       data-testid="bottom-nav"
     >
-      <div className="mx-auto max-w-md px-3">
+      <div className="w-full max-w-md mx-auto px-3 md:max-w-none md:mx-0 md:px-6">
         <ul className="flex items-center justify-between h-16">
           {items.map(({ to, label, Icon, match, action }) => {
             const active = match.some((m) =>

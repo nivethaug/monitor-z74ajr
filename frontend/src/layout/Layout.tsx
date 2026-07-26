@@ -12,7 +12,7 @@ const Layout = () => {
   return (
     <MetricsProvider>
       <div className="app-bg min-h-screen text-slate-100">
-        <main className="max-w-md mx-auto px-4 pt-3 pb-28 page-enter">
+        <main className="w-full max-w-md mx-auto px-4 pt-3 pb-28 page-enter md:max-w-none md:mx-0 md:px-6 md:pt-5 md:pb-32">
           <Outlet />
         </main>
         <Navbar />
