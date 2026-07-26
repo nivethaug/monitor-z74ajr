@@ -21,7 +21,7 @@ const BottomNavigation = () => {
   const { refresh, loading } = useMetrics();
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('monitor_token');
     window.location.href = '/login';
   };
 

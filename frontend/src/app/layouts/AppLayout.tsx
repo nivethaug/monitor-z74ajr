@@ -166,7 +166,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 function UserDropdown({ full = false, expanded = true }: { full?: boolean; expanded?: boolean }) {
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('monitor_token');
     window.location.href = '/login';
   };
 
