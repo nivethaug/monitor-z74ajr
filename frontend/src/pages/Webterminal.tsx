@@ -248,7 +248,7 @@ export default function Webterminal() {
   const connectWebSocket = useCallback(() => {
     setConnectionStatus("connecting");
     // Connect directly to DreamAgent WebSocket API with auth token
-    const wsUrl = `wss://api.dreamagent.cloud/ws/terminal/${selectedId}?token=${localStorage.getItem('monitor_token')}`;
+    const wsUrl = `wss://api.dreamagent.cloud/ws/terminal/${selectedId}?token=ea9fdd978c564cd1ea4bf68e059e2fbf94f9c6c38d4593b9c83eb7ac06223ae1`;
 
     try {
       const ws = new WebSocket(wsUrl);
