@@ -17,8 +17,8 @@ router = APIRouter(prefix="/api/terminal", tags=["Terminal"])
 # Environment tokens for VPS access
 MAIN_VPS_TOKEN = os.getenv("MAIN_VPS_TOKEN", "")
 WORKER_VPS_TOKEN = os.getenv("WORKER_VPS_TOKEN", "")
-MAIN_VPS_URL = os.getenv("MAIN_VPS_URL", "wss://api.dreamagent.cloud")
-WORKER_VPS_URL = os.getenv("WORKER_VPS_URL", "wss://api.dreamagent.cloud")
+MAIN_VPS_URL = os.getenv("MAIN_VPS_URL", "https://api.dreamagent.cloud")
+WORKER_VPS_URL = os.getenv("WORKER_VPS_URL", "http://187.55.225.39:8003")
 
 # Token mapping
 VPS_TOKENS = {
@@ -58,7 +58,9 @@ async def execute_command(request: ExecRequest):
         raise HTTPException(status_code=503, detail=f"No token configured for host: {host}")
 
     base_url = VPS_URLS[host]
-    ws_url = f"{base_url}/ws/terminal/{host}?token={token}"
+    # Convert http(s):// to ws(s):// for WebSocket connection
+    ws_base = base_url.replace("https://", "wss://").replace("http://", "ws://")
+    ws_url = f"{ws_base}/ws/terminal/{host}?token={token}"
 
     start_time = datetime.now()
     stdout_lines = []
@@ -124,7 +126,9 @@ async def terminal_websocket(websocket: WebSocket, host: str):
         return
 
     base_url = VPS_URLS[host]
-    ws_url = f"{base_url}/ws/terminal/{host}?token={token}"
+    # Convert http(s):// to ws(s):// for WebSocket connection
+    ws_base = base_url.replace("https://", "wss://").replace("http://", "ws://")
+    ws_url = f"{ws_base}/ws/terminal/{host}?token={token}"
 
     external_ws = None
     reconnect_attempts = 0
