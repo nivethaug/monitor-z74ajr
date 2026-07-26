@@ -247,12 +247,8 @@ export default function Webterminal() {
   /* ---- WebSocket connection management ---- */
   const connectWebSocket = useCallback(() => {
     setConnectionStatus("connecting");
-    // Connect to backend proxy which has VPS tokens in environment
-    // Backend runs on port 8011, frontend on 3011
-    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const currentHost = window.location.hostname;
-    const backendHost = currentHost.replace('-z74ajr.', '-z74ajr-api.');
-    const wsUrl = `${wsProtocol}//${backendHost}/api/terminal/ws/${selectedId}`;
+    // Connect directly to DreamAgent WebSocket API with auth token
+    const wsUrl = `wss://api.dreamagent.cloud/ws/terminal/${selectedId}?token=${localStorage.getItem('auth_token')}`;
 
     try {
       const ws = new WebSocket(wsUrl);
