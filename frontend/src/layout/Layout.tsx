@@ -3,19 +3,19 @@ import Navbar from "./Navbar";
 import { MetricsProvider } from "@/lib/metrics-context";
 
 /**
- * Layout component - Main application layout wrapper
- *
- * Provides the base structure for all pages using React Router
- * nested routes via <Outlet />.
+ * Layout — mobile-first shell.
+ * - Dark app background (#090B14)
+ * - Sticky bottom navigation (64px + safe area)
+ * - Content padding prevents bottom-nav overlap
  */
 const Layout = () => {
   return (
     <MetricsProvider>
-      <div className="min-h-screen bg-slate-950 text-slate-100">
-        <Navbar />
-        <main className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="app-bg min-h-screen text-slate-100">
+        <main className="max-w-md mx-auto px-4 pt-3 pb-28 page-enter">
           <Outlet />
         </main>
+        <Navbar />
       </div>
     </MetricsProvider>
   );
