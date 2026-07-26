@@ -10,7 +10,6 @@ import {
   Server,
   ChevronDown,
   Search,
-  Filter,
   Send,
   Terminal,
   Copy,
@@ -19,7 +18,6 @@ import {
   Star,
   Pin,
   RotateCcw,
-  Play,
   Pencil,
   Share2,
   Download,
@@ -27,16 +25,15 @@ import {
   Minimize2,
   X,
   ChevronUp,
-  ArrowUp,
   Circle,
-  Zap,
   MoreHorizontal,
-  Signal,
   Loader2,
   Ban,
   Clock,
   Wifi,
+  WifiOff,
   Activity,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +48,6 @@ type VpsOption = {
   status: "online" | "offline";
   os: string;
   region: string;
-  latency: number;
 };
 
 const VPS_OPTIONS: VpsOption[] = [
@@ -63,7 +59,6 @@ const VPS_OPTIONS: VpsOption[] = [
     status: "online",
     os: "Ubuntu 22.04 LTS",
     region: "Frankfurt, DE",
-    latency: 38,
   },
   {
     id: "worker",
@@ -73,7 +68,6 @@ const VPS_OPTIONS: VpsOption[] = [
     status: "online",
     os: "Debian 12",
     region: "Amsterdam, NL",
-    latency: 52,
   },
 ];
 
@@ -93,12 +87,14 @@ type Message = {
 
 type TimelineEvent = {
   id: string;
-  kind: "connect" | "disconnect" | "reconnect" | "key-change" | "info";
+  kind: "connect" | "disconnect" | "reconnect" | "key-change" | "info" | "error";
   text: string;
   timestamp: number;
 };
 
 type FilterKind = "all" | "errors" | "warnings" | "commands";
+
+type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
 const COLLAPSE_THRESHOLD = 20;
 
@@ -121,241 +117,10 @@ const DEFAULT_FAVOURITES = [
   { id: "f5", label: "Deploy", command: "bash deploy.sh" },
 ];
 
-/* ----------------------- Mock command engine ---------------------- */
-
-function mockResult(cmd: string, vps: VpsOption): { output: string; exitCode: number; error?: boolean; warning?: boolean } {
-  const c = cmd.trim();
-  const base = c.split(/[ \t]/)[0];
-  const user = vps.user;
-  const host = vps.host;
-
-  if (c === "help") {
-    return {
-      exitCode: 0,
-      output: [
-        "DreamAgent Shell — demo mode (no real SSH backend connected).",
-        "",
-        "Try these raw commands:",
-        "  docker ps              list running containers",
-        "  pm2 list               show PM2 process table",
-        "  htop                   interactive process viewer (snapshot)",
-        "  df -h                  disk usage",
-        "  free -m                memory usage",
-        "  systemctl status nginx service status",
-        "  journalctl -u nginx    recent service logs",
-        "  git pull               pull latest",
-        "  npm install            install deps",
-        "  ls -la                 long listing",
-        "  whoami / hostname / pwd / uname / date / uptime",
-        "  clear                  clear conversation",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "clear" || c === "cls") return { exitCode: 0, output: "" };
-
-  if (c === "whoami") return { exitCode: 0, output: user };
-  if (c === "hostname") return { exitCode: 0, output: host };
-  if (c === "pwd") return { exitCode: 0, output: `/home/${user}` };
-  if (c === "date") return { exitCode: 0, output: new Date().toString() };
-  if (c === "uname") return { exitCode: 0, output: `Linux ${host} 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux` };
-  if (c === "uptime")
-    return {
-      exitCode: 0,
-      output: ` ${new Date().toLocaleTimeString()} up 14 days,  6:22,  1 user,  load average: 0.18, 0.22, 0.19`,
-    };
-  if (c === "echo " + "" || c.startsWith("echo "))
-    return { exitCode: 0, output: c.slice(5) };
-
-  if (c === "ls" || c === "ls -la" || c.startsWith("ls -")) {
-    return {
-      exitCode: 0,
-      output: [
-        "total 48",
-        "drwxr-xr-x  6 root root 4096 Jul 20 09:12 .",
-        "drwxr-xr-x 18 root root 4096 Jul 18 22:04 ..",
-        "-rw-r--r--  1 root root  310 Jul 19 11:02 deploy.sh",
-        "-rw-r--r--  1 root root 1284 Jul 18 22:10 docker-compose.yml",
-        "drwxr-xr-x  3 root root 4096 Jul 20 08:55 logs",
-        "drwxr-xr-x  4 root root 4096 Jul 19 23:41 projects",
-        "drwxr-xr-x  2 root root 4096 Jul 18 22:04 .ssh",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "docker ps" || c.startsWith("docker ps")) {
-    return {
-      exitCode: 0,
-      output: [
-        "CONTAINER ID   IMAGE                  STATUS         PORTS                  NAMES",
-        "a1b2c3d4e5f6   nginx:alpine           Up 3 days      0.0.0.0:80->80/tcp     nginx",
-        "9f8e7d6c5b4a   postgres:15            Up 3 days      5432/tcp               db",
-        "1234abcd5678   node:20-alpine         Up 11 hours    0.0.0.0:3000->3000/tcp app",
-        "0fedcba98765   redis:7-alpine         Up 3 days      6379/tcp               cache",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "pm2 list" || c.startsWith("pm2 list") || c === "pm2 ls") {
-    return {
-      exitCode: 0,
-      output: [
-        "┌────┬─────────────────┬───────────────┬────────┐",
-        "│ id│ name            │ status        │ cpu    │",
-        "├────┼─────────────────┼───────────────┼────────┤",
-        "│ 0  │ api             │ online        │ 2.1%   │",
-        "│ 1  │ worker          │ online        │ 0.8%   │",
-        "│ 2  │ scheduler       │ online        │ 1.4%   │",
-        "│ 3  │ websocket       │ online        │ 0.3%   │",
-        "└────┴─────────────────┴───────────────┴────────┘",
-      ].join("\n"),
-    };
-  }
-
-  if (c.startsWith("htop")) {
-    return {
-      exitCode: 0,
-      output: [
-        "  CPU[|||||||||||||||     68.7%]   Tasks: 142, 4 thr; 1 running",
-        "  Mem[|||||||||||         4.2/8G]  Load average: 0.42 0.38 0.31",
-        "  Swp[                       0/0]  Uptime: 14d 6h 22m",
-        "",
-        "    PID USER      PRI  NI  VIRT   RES   SHR S CPU%  MEM%   TIME+  Command",
-        "   1247 root       20   0  412M  88M  24M  S  3.2  1.1  12:48.91 nginx",
-        "   2103 postgres  20   0  980M 210M  18M  S  2.1  2.6  48:12.33 postgres",
-        "   3391 node      20   0  720M 165M  30M  S  1.8  2.0  33:50.12 node api",
-        "   4502 redis     20   0  120M  18M  8M   S  0.4  0.2   8:21.50 redis-server",
-      ].join("\n"),
-    };
-  }
-
-  if (c.startsWith("df -h") || c === "df") {
-    return {
-      exitCode: 0,
-      output: [
-        "Filesystem      Size  Used Avail Use% Mounted on",
-        "/dev/vda1       160G   67G   85G  45% /",
-        "tmpfs           4.0G     0  4.0G   0% /dev/shm",
-        "/dev/vdb1       100G   12G   83G  13% /data",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "free -m" || c.startsWith("free ")) {
-    return {
-      exitCode: 0,
-      output: [
-        "               total        used        free      shared  buff/cache   available",
-        "Mem:           8192        4300        1102         284        2789        3300",
-        "Swap:          2048           0        2048",
-      ].join("\n"),
-    };
-  }
-
-  if (c.startsWith("systemctl status")) {
-    const svc = c.replace("systemctl status", "").trim() || "nginx";
-    return {
-      exitCode: 0,
-      output: [
-        `● ${svc}.service - ${svc} reverse proxy server`,
-        "     Loaded: loaded (/lib/systemd/system/nginx.service; enabled)",
-        "     Active: active (running) since Mon 2024-07-08 10:14:22 UTC",
-        "       Docs: man:nginx(8)",
-        "   Main PID: 1247 (nginx)",
-        "      Tasks: 9 (limit: 4915)",
-        "     Memory: 88.4M",
-        "        CPU: 12min 48.910s",
-      ].join("\n"),
-    };
-  }
-
-  if (c.startsWith("systemctl restart")) {
-    return { exitCode: 0, output: "" };
-  }
-
-  if (c.startsWith("journalctl")) {
-    return {
-      exitCode: 0,
-      warning: true,
-      output: [
-        "Jul 20 14:32:01 main nginx[1247]: 192.168.1.10 - GET /api/health 200 12ms",
-        "Jul 20 14:32:04 main nginx[1247]: 203.0.113.5 - POST /api/login 401 8ms",
-        "Jul 20 14:32:09 main nginx[1247]: warning: worker_connections (1024) approaching limit",
-        "Jul 20 14:32:14 main nginx[1247]: 198.51.100.7 - GET / 200 4ms",
-        "Jul 20 14:32:18 main nginx[1247]: 192.168.1.10 - GET /api/metrics 200 18ms",
-        "Jul 20 14:32:22 main nginx[1247]: 203.0.113.9 - GET /favicon.ico 404 2ms",
-        "Jul 20 14:32:27 main nginx[1247]: 198.51.100.2 - GET /dashboard 200 22ms",
-        "Jul 20 14:32:31 main nginx[1247]: warning: upstream response time slow (2.1s)",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "git pull" || c.startsWith("git pull")) {
-    return {
-      exitCode: 0,
-      output: [
-        "remote: Enumerating objects: 48, done.",
-        "remote: Counting objects: 100% (48/48), done.",
-        "remote: Compressing objects: 100% (12/12), done.",
-        "remote: Total 36 (delta 28), reused 32 (delta 24)",
-        "Unpacking objects: 100% (36/36), 248 KiB | 4.2 MiB/s, done.",
-        "From github.com:dreamagent/monitor",
-        "   7a3f1c2..b9d4e8a  main       -> origin/main",
-        "Updating 7a3f1c2..b9d4e8a",
-        "Fast-forward",
-        " src/pages/Webterminal.tsx | 384 +++++++++++++++++++++++++++++++",
-        " 1 file changed, 384 insertions(+), 0 deletions(-)",
-      ].join("\n"),
-    };
-  }
-
-  if (c === "npm install" || c.startsWith("npm install") || c.startsWith("npm i ")) {
-    return {
-      exitCode: 0,
-      output: [
-        "added 312 packages, and audited 313 packages in 8s",
-        "42 packages are looking for funding",
-        "  run `npm fund` for details",
-        "found 0 vulnerabilities",
-      ].join("\n"),
-    };
-  }
-
-  if (c.startsWith("neofetch")) {
-    return {
-      exitCode: 0,
-      output: [
-        `       _..._       ${user}@${host}`,
-        "     .-'_..._''.   ----------------------",
-        `   .' .'      '.\\  OS: ${vps.os}`,
-        "  / .'           Kernel: 5.15.0-91-generic",
-        " . '             Uptime: 14d 6h 22m",
-        " | |             CPU: 4 cores @ 68.7%",
-        " | |             Memory: 4.2/8 GB",
-        ` '. '            Region: ${vps.region}`,
-        "  \\ '.          ",
-      ].join("\n"),
-    };
-  }
-
-  // unknown command
-  return {
-    exitCode: 127,
-    error: true,
-    output: `bash: ${base}: command not found`,
-  };
-}
-
 /* ----------------------- Syntax highlighter ---------------------- */
 
 function highlightLine(line: string, idx: number, lineNumbers: boolean, raw: boolean): React.ReactNode {
-  const content = raw ? (
-    line
-  ) : (
-    <>
-      {tokenize(line)}
-    </>
-  );
+  const content = raw ? line : tokenize(line);
   if (!lineNumbers) return <>{content}{"\n"}</>;
   return (
     <span className="flex">
@@ -366,7 +131,6 @@ function highlightLine(line: string, idx: number, lineNumbers: boolean, raw: boo
 }
 
 function tokenize(line: string): React.ReactNode {
-  // clickable URLs
   const urlMatch = line.match(/(https?:\/\/[^\s)]+)/);
   if (urlMatch) {
     const url = urlMatch[0];
@@ -386,12 +150,11 @@ function tokenize(line: string): React.ReactNode {
       </>
     );
   }
-  const lower = line.toLowerCase();
   if (/^(error|fatal|panic|traceback|bash:)/i.test(line) || /command not found/i.test(line))
     return <span className="text-rose-400">{line}</span>;
   if (/warning|warn/i.test(line) && !/active/i.test(line))
     return <span className="text-amber-300">{line}</span>;
-  if (/\b(401|403|404|500|502|503)\b/.test(line) && /http|get|post|put|delete/i.test(lower))
+  if (/\b(401|403|404|500|502|503)\b/.test(line) && /http|get|post|put|delete/i.test(line.toLowerCase()))
     return <span className="text-amber-300">{line}</span>;
   return <span className="text-slate-200">{line}</span>;
 }
@@ -459,36 +222,186 @@ export default function Webterminal() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // WebSocket state
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
+  const [latency, setLatency] = useState(38);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCommandRef = useRef<{ id: string; startTime: number } | null>(null);
+
   const sessionStart = useRef(Date.now());
   const now = useNow(1000);
   const sessionDuration = now - sessionStart.current;
 
-  // live latency fluctuation
-  const [latency, setLatency] = useState(selected.latency);
+  // Live latency fluctuation
   useEffect(() => {
-    setLatency(selected.latency);
     const t = setInterval(() => {
       setLatency((l) => Math.max(18, Math.min(180, l + Math.round((Math.random() - 0.5) * 14))));
     }, 2500);
     return () => clearInterval(t);
-  }, [selectedId, selected.latency]);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const activeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* ---- welcome timeline ---- */
+  /* ---- WebSocket connection management ---- */
+  const connectWebSocket = useCallback(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      setConnectionStatus("error");
+      setTimeline((t) => [
+        ...t,
+        {
+          id: uid(),
+          kind: "error",
+          text: "No auth token found. Please log in.",
+          timestamp: Date.now(),
+        },
+      ]);
+      return;
+    }
+
+    setConnectionStatus("connecting");
+    const wsUrl = `wss://api.dreamagent.cloud/ws/terminal/${selectedId}?token=${token}`;
+
+    try {
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        setConnectionStatus("connected");
+        wsRef.current = ws;
+        setTimeline((t) => [
+          ...t,
+          {
+            id: uid(),
+            kind: "connect",
+            text: `SSH connected to ${selected.host} as ${selected.user}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (!pendingCommandRef.current) return;
+          const { id, startTime } = pendingCommandRef.current;
+
+          if (data.type === "stdout") {
+            setMessages((msgs) =>
+              msgs.map((m) =>
+                m.id === id ? { ...m, output: m.output + data.data } : m
+              )
+            );
+          } else if (data.type === "stderr") {
+            setMessages((msgs) =>
+              msgs.map((m) =>
+                m.id === id ? { ...m, output: m.output + data.data, isWarning: true } : m
+              )
+            );
+          } else if (data.type === "exit") {
+            const duration = (Date.now() - startTime) / 1000;
+            setMessages((msgs) =>
+              msgs.map((m) =>
+                m.id === id
+                  ? {
+                      ...m,
+                      exitCode: data.code,
+                      status: data.code === 0 ? "completed" : "error",
+                      duration,
+                    }
+                  : m
+              )
+            );
+            pendingCommandRef.current = null;
+          } else if (data.type === "killed") {
+            setMessages((msgs) =>
+              msgs.map((m) =>
+                m.id === id
+                  ? {
+                      ...m,
+                      exitCode: 130,
+                      status: "error",
+                      duration: (Date.now() - startTime) / 1000,
+                      output: m.output + "\n^C",
+                    }
+                  : m
+              )
+            );
+            pendingCommandRef.current = null;
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      };
+
+      ws.onclose = (event) => {
+        setConnectionStatus("disconnected");
+        wsRef.current = null;
+
+        if (event.code !== 1000) {
+          setTimeline((t) => [
+            ...t,
+            {
+              id: uid(),
+              kind: "disconnect",
+              text: `Disconnected from ${selected.host}`,
+              timestamp: Date.now(),
+            },
+          ]);
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setTimeline((t) => [
+              ...t,
+              {
+                id: uid(),
+                kind: "reconnect",
+                text: `Reconnecting to ${selected.host}...`,
+                timestamp: Date.now(),
+              },
+            ]);
+            connectWebSocket();
+          }, 3000);
+        }
+      };
+
+      ws.onerror = () => {
+        setConnectionStatus("error");
+        setTimeline((t) => [
+          ...t,
+          {
+            id: uid(),
+            kind: "error",
+            text: `Connection error to ${selected.host}`,
+            timestamp: Date.now(),
+          },
+        ]);
+      };
+
+      wsRef.current = ws;
+    } catch {
+      setConnectionStatus("error");
+    }
+  }, [selectedId, selected.host, selected.user]);
+
+  // Connect on mount and when VPS changes
   useEffect(() => {
-    setTimeline([
-      {
-        id: uid(),
-        kind: "connect",
-        text: `SSH connected to ${selected.host} as ${selected.user}`,
-        timestamp: Date.now(),
-      },
-    ]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (wsRef.current) {
+      wsRef.current.close(1000);
+      wsRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) wsRef.current.close(1000);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+  }, [connectWebSocket]);
 
   /* ---- autoscroll on new content ---- */
   useEffect(() => {
@@ -505,11 +418,17 @@ export default function Webterminal() {
     setTimeout(() => setToast(null), 1600);
   }, []);
 
-  /* ---- run command with simulated streaming ---- */
+  /* ---- run command via WebSocket ---- */
   const runCommand = useCallback(
     (raw: string) => {
       const cmd = raw.trim();
       if (!cmd) return;
+
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        showToast("Not connected. Waiting for reconnection...");
+        return;
+      }
+
       if (cmd === "clear" || cmd === "cls") {
         setMessages([]);
         setTimeline((t) => [
@@ -520,68 +439,36 @@ export default function Webterminal() {
       }
 
       const id = uid();
+      const startTime = Date.now();
+
       const msg: Message = {
         id,
         command: cmd,
         output: "",
         exitCode: null,
         status: "running",
-        timestamp: Date.now(),
+        timestamp: startTime,
         duration: null,
         pinned: false,
       };
+
       setMessages((m) => [...m, msg]);
       setHistory((h) => (h[h.length - 1] === cmd ? h : [...h, cmd]));
       setHistoryIdx(-1);
 
-      const result = mockResult(cmd, selected);
-      const lines = result.output.split("\n");
-      const start = Date.now();
-
-      if (activeTimer.current) clearInterval(activeTimer.current);
-      let lineIdx = 0;
-      activeTimer.current = setInterval(() => {
-        lineIdx = Math.min(lineIdx + 1, lines.length);
-        const partial = lines.slice(0, lineIdx).join("\n");
-        setMessages((m) => m.map((x) => (x.id === id ? { ...x, output: partial } : x)));
-        if (lineIdx >= lines.length) {
-          if (activeTimer.current) clearInterval(activeTimer.current);
-          activeTimer.current = null;
-          const duration = (Date.now() - start) / 1000;
-          setMessages((m) =>
-            m.map((x) =>
-              x.id === id
-                ? {
-                    ...x,
-                    output: result.output,
-                    exitCode: result.exitCode,
-                    status: result.error ? "error" : "completed",
-                    duration,
-                    isWarning: result.warning,
-                  }
-                : x
-            )
-          );
-        }
-      }, 45);
+      wsRef.current.send(JSON.stringify({ command: cmd }));
+      pendingCommandRef.current = { id, startTime };
     },
-    [selected]
+    [showToast]
   );
 
   /* ---- cancel running command (Ctrl+C) ---- */
   const cancelRunning = useCallback(() => {
-    if (activeTimer.current) {
-      clearInterval(activeTimer.current);
-      activeTimer.current = null;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: "ctrl_c" }));
+      showToast("Interrupted (Ctrl+C)");
     }
-    setMessages((m) =>
-      m.map((x) =>
-        x.status === "running"
-          ? { ...x, status: "error", exitCode: 130, duration: 0, output: x.output + "\n^C" }
-          : x
-      )
-    );
-  }, []);
+  }, [showToast]);
 
   /* ---- input handling ---- */
   const submit = () => {
@@ -598,11 +485,9 @@ export default function Webterminal() {
       return;
     }
     if (e.ctrlKey && e.key.toLowerCase() === "c") {
-      // only treat as cancel if input empty; otherwise let copy work
       if (input.trim() === "") {
         e.preventDefault();
         cancelRunning();
-        showToast("Interrupted (Ctrl+C)");
       }
       return;
     }
@@ -651,9 +536,8 @@ export default function Webterminal() {
     setTimeline((t) => [
       ...t,
       { id: uid(), kind: "disconnect", text: `Disconnected from ${selected.host}`, timestamp: Date.now() },
-      { id: uid(), kind: "reconnect", text: `Reconnected to ${v.host} as ${v.user}`, timestamp: Date.now() },
+      { id: uid(), kind: "reconnect", text: `Reconnecting to ${v.host} as ${v.user}...`, timestamp: Date.now() },
     ]);
-    if (activeTimer.current) clearInterval(activeTimer.current);
   };
 
   /* ---- command actions ---- */
@@ -733,7 +617,6 @@ export default function Webterminal() {
   const renderConversation = () => {
     const nodes: React.ReactNode[] = [];
     let lastLabel = "";
-    let msgCounter = 0;
     const allItems: Array<{ type: "msg"; m: Message; key: string } | { type: "event"; e: TimelineEvent; key: string }> = [
       ...timeline.map((e) => ({ type: "event" as const, e, key: "e-" + e.id })),
       ...visibleMessages.map((m) => ({ type: "msg" as const, m, key: "m-" + m.id })),
@@ -755,7 +638,6 @@ export default function Webterminal() {
         const isToday = new Date().toLocaleDateString() === label;
         nodes.push(<DateSeparator key={"d-" + label} label={isToday ? "Today" : label} />);
       }
-      msgCounter++;
       nodes.push(
         <ChatRow
           key={item.key}
@@ -799,6 +681,42 @@ export default function Webterminal() {
   };
 
   const fullscreenMsg = messages.find((m) => m.id === fullscreenId) || null;
+
+  const isRunning = messages.some((m) => m.status === "running");
+
+  // Connection status badge
+  const connectionBadge = useMemo(() => {
+    switch (connectionStatus) {
+      case "connecting":
+        return (
+          <Badge variant="outline" className="bg-amber-500/10 border-amber-500/30 text-amber-300 gap-1 text-[10px]">
+            <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            Connecting
+          </Badge>
+        );
+      case "connected":
+        return (
+          <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-300 gap-1 text-[10px]">
+            <Wifi className="h-3 w-3" aria-hidden="true" />
+            SSH
+          </Badge>
+        );
+      case "disconnected":
+        return (
+          <Badge variant="outline" className="bg-slate-500/10 border-slate-500/30 text-slate-400 gap-1 text-[10px]">
+            <WifiOff className="h-3 w-3" aria-hidden="true" />
+            Offline
+          </Badge>
+        );
+      case "error":
+        return (
+          <Badge variant="outline" className="bg-rose-500/10 border-rose-500/30 text-rose-300 gap-1 text-[10px]">
+            <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+            Error
+          </Badge>
+        );
+    }
+  }, [connectionStatus]);
 
   return (
     <main
@@ -888,18 +806,19 @@ export default function Webterminal() {
 
           {/* Connection status chips */}
           <div className="flex items-center gap-1.5 shrink-0" data-testid="webterminal-status-bar">
-            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-300 gap-1 text-[10px]">
-              <Wifi className="h-3 w-3" aria-hidden="true" />
-              SSH
-            </Badge>
-            <Badge variant="outline" className="hidden sm:inline-flex bg-slate-900/70 border-slate-700 text-slate-300 text-[10px] gap-1">
-              <Signal className="h-3 w-3" aria-hidden="true" />
-              {latency}ms
-            </Badge>
-            <Badge variant="outline" className="hidden md:inline-flex bg-slate-900/70 border-slate-700 text-slate-300 text-[10px] gap-1">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {fmtSession(sessionDuration)}
-            </Badge>
+            {connectionBadge}
+            {connectionStatus === "connected" && (
+              <>
+                <Badge variant="outline" className="hidden sm:inline-flex bg-slate-900/70 border-slate-700 text-slate-300 text-[10px] gap-1">
+                  <Activity className="h-3 w-3" aria-hidden="true" />
+                  {latency}ms
+                </Badge>
+                <Badge variant="outline" className="hidden md:inline-flex bg-slate-900/70 border-slate-700 text-slate-300 text-[10px] gap-1">
+                  <Clock className="h-3 w-3" aria-hidden="true" />
+                  {fmtSession(sessionDuration)}
+                </Badge>
+              </>
+            )}
           </div>
 
           <div className="flex-1" />
@@ -1089,12 +1008,13 @@ export default function Webterminal() {
               rows={multiline ? 4 : 1}
               data-testid="webterminal-input"
               aria-label="Shell command input"
-              placeholder="Type a shell command…"
+              placeholder={connectionStatus === "connected" ? "Type a shell command…" : "Waiting for connection…"}
               autoComplete="off"
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              className={`flex-1 bg-transparent resize-none py-2 pr-2 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none ${
+              disabled={connectionStatus !== "connected"}
+              className={`flex-1 bg-transparent resize-none py-2 pr-2 font-mono text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none disabled:opacity-50 ${
                 multiline ? "" : "h-9"
               }`}
             />
@@ -1111,7 +1031,7 @@ export default function Webterminal() {
               >
                 {multiline ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
               </Button>
-              {messages.some((m) => m.status === "running") && (
+              {isRunning && (
                 <Button
                   type="button"
                   size="sm"
@@ -1129,7 +1049,7 @@ export default function Webterminal() {
                 type="button"
                 size="sm"
                 onClick={submit}
-                disabled={!input.trim()}
+                disabled={!input.trim() || connectionStatus !== "connected"}
                 data-testid="webterminal-send-button"
                 className="h-9 w-9 sm:w-auto sm:px-4 p-0 sm:p-0 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold disabled:opacity-40 disabled:hover:bg-emerald-500"
                 aria-label="Run command"
@@ -1235,7 +1155,7 @@ function DateSeparator({ label }: { label: string }) {
 
 function TimelineSeparator({ event }: { event: TimelineEvent }) {
   const color =
-    event.kind === "disconnect"
+    event.kind === "disconnect" || event.kind === "error"
       ? "text-rose-400 border-rose-500/30 bg-rose-500/5"
       : event.kind === "reconnect"
       ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/5"
