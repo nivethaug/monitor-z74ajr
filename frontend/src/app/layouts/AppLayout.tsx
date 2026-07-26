@@ -6,6 +6,7 @@ import {
   Menu,
   X,
   ChevronLeft,
+  LogOut,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -164,6 +165,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 }
 
 function UserDropdown({ full = false, expanded = true }: { full?: boolean; expanded?: boolean }) {
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    window.location.href = '/login';
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -193,6 +199,11 @@ function UserDropdown({ full = false, expanded = true }: { full?: boolean; expan
           <p className="text-sm font-medium">Sarah Chen</p>
           <p className="text-xs text-muted-foreground">sarah.chen@company.com</p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-500 cursor-pointer">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
