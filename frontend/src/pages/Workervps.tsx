@@ -584,7 +584,7 @@ const Workervps = () => {
       <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-30 w-full max-w-md px-4 md:max-w-3xl md:px-6">
         <div className="action-bar rounded-2xl p-1.5 flex items-center justify-between gap-1">
           <ActionBtn Icon={RotateCw} label="Restart" onClick={() => navigate("/dockerfleet")} />
-          <ActionBtn Icon={ScrollText} label="Logs" onClick={() => navigate("/inframonitor")} />
+          <ActionBtn Icon={ScrollText} label="Logs" onClick={() => navigate("/dockerfleet")} />
           <ActionBtn Icon={Terminal} label="Terminal" onClick={() => navigate("/webterminal")} primary />
           <ActionBtn Icon={Rocket} label="Deploy" onClick={() => navigate("/dockerfleet")} />
         </div>

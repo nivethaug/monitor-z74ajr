@@ -2,7 +2,6 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutGrid,
   Container,
-  Boxes,
   HardDrive,
   Settings,
   RefreshCw,
@@ -28,7 +27,6 @@ const BottomNavigation = () => {
   const items = [
     { to: "/", label: "Overview", Icon: LayoutGrid, match: ["/", "/workervps"] },
     { to: "/dockerfleet", label: "Containers", Icon: Container, match: ["/dockerfleet"] },
-    { to: "/inframonitor", label: "Processes", Icon: Boxes, match: ["/inframonitor"] },
     { to: "/webterminal", label: "Storage", Icon: HardDrive, match: ["/webterminal"] },
     { to: "#logout", label: "Logout", Icon: LogOut, match: ["#logout"], action: handleLogout },
   ];

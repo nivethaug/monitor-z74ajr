@@ -2,8 +2,7 @@
   "pages": [
     "Mainvps",
     "Workervps",
-    "Dockerfleet",
-    "Inframonitor"
+    "Dockerfleet"
   ],
   "generated_at": null,
   "scaffolded": false

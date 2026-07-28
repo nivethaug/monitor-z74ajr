@@ -18,7 +18,6 @@ import {
 
 const mainNavItems = [
   { name: 'Home', href: '/', icon: Home },
-  { name: 'Inframonitor', href: '/', icon: LayoutDashboard },
   { name: 'Dockerfleet', href: '/dockerfleet', icon: LayoutDashboard },
   { name: 'Workervps', href: '/workervps', icon: LayoutDashboard },
   { name: 'Mainvps', href: '/mainvps', icon: LayoutDashboard },

@@ -8,7 +8,6 @@ import Layout from "./layout/Layout";
 import Mainvps from "./pages/Mainvps";
 import Workervps from "./pages/Workervps";
 import Dockerfleet from "./pages/Dockerfleet";
-import Inframonitor from "./pages/Inframonitor";
 import Webterminal from "./pages/Webterminal";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -28,7 +27,6 @@ const App = () => (
               <Route path="/" element={<Mainvps />} />
               <Route path="/workervps" element={<Workervps />} />
               <Route path="/dockerfleet" element={<Dockerfleet />} />
-              <Route path="/inframonitor" element={<Inframonitor />} />
               <Route path="/webterminal" element={<Webterminal />} />
               <Route path="*" element={<NotFound />} />
             </Route>
