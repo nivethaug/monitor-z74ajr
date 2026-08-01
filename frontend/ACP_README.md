@@ -17,7 +17,6 @@ It provides safe, validated frontend editing with the following protections:
 - ✅ Hash-based filesystem diffing (accurate change detection)
 - ✅ AI edit scope limiting (reduces timeouts)
 - ✅ Verification build (always runs, even with no changes)
-- ✅ AI duration tracking (optimizes prompts)
 
 ### Project Status
 - **Project Name:** monitor
@@ -27,7 +26,7 @@ It provides safe, validated frontend editing with the following protections:
 - **ACP Frontend Editor:** ✅ Integrated and Ready
 ### Changes Applied
 - **5 new files**, **2 modified files**
-- **Build Status:** N/A
+- **Build Status:**
 
 
 ### Technical Details
